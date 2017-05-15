@@ -31,13 +31,13 @@ Label = train_df["Survived"].copy()
 #fill missing categorical values with the most appearing category in the column
 X["Embarked"] = X["Embarked"].fillna(X["Embarked"].value_counts().index[0])
 X["Sex"] = X["Sex"].fillna(X["Sex"].value_counts().index[0])
-
+X["Pclass"] = X["Pclass"].apply(str)
 
 #==============================================================================
 # Categorise basic attributes
 #==============================================================================
 num_attribs = ["Age", "Fare", "Parch","SibSp"]
-cat_attribs = ["Male","C", "Q", "S", "Master", "Miss", "Mr", "Mrs", "Rare", "Pclass"]
+cat_attribs = ["Sex", "Embarked", "Pclass"]
 
 
 #%%
@@ -138,19 +138,9 @@ X = pd.concat([X,cat_attr_df], axis = 1)
 
 
 
-#%%
-#==============================================================================
-# Label Encoder
-#==============================================================================
-"""
-Quick fix until label binarizer has its own pipeline tranformer
-"""
-from sklearn.preprocessing import LabelEncoder
-encoder  = LabelEncoder()
 
-for attribute in cat_attribs:
-     X[attribute] = encoder.fit_transform(X[attribute])
-     
+        
+
 
 #%%
 #TODO: LabelBinarizer with multiple input labels custom transformer
@@ -172,7 +162,7 @@ num_pipeline = Pipeline([
 
 cat_pipeline = Pipeline([
         ('selector', DataFrameSelector(cat_attribs)),
-        #('label_binarizer', LabelBinarizer()),
+        ('label_binarizer', MultiBinarizer()),
     ])
 
 preparation_pipeline = FeatureUnion(transformer_list=[
@@ -220,17 +210,18 @@ clf=voting_clf
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 
-param_grid = [
- {'degree': [2,3,8], 'coef0': [0.1, 1,5], 'C': [0.1, 1]}
+param_grid_svc = [
+ {'degree': [11], 'coef0': [0.1, 1,5,10], 'C': [0.1, 1,5]}
  ]
 
-param_grid = [
+param_grid_forest = [
  {'n_estimators': [10,100,200,500,1000,10000]}
  ]
 
 #clf = SVC(kernel='poly')
-clf = RandomForestClassifier()
-grid_search = GridSearchCV(clf, param_grid, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
+clf = SVC(kernel='poly')
+#grid_search = GridSearchCV(clf, param_grid_forest, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
+grid_search = GridSearchCV(clf, param_grid_svc, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
 grid_search.fit(X_prepared, Label)
 
 #%%
