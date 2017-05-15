@@ -62,7 +62,7 @@ cabinLetter = []
 for cabinNum in cabin:
      cabinLetter.append(cabinNum[0])
 
-X["Cabin"] = cabin
+X["Cabin"] = cabinLetter
 cat_attribs.append("Cabin")
  
 #%%
@@ -98,48 +98,11 @@ X['Title'] = X_title['Title']
 
 count = 0
 
-#if any("Title" in s for s in cat_attribs):   
-#     pass
-#else:
-#     cat_attribs.append("Title")
+if any("Title" in s for s in cat_attribs):   
+     pass
+else:
+     cat_attribs.append("Title")
 
-
-#%%
-#==============================================================================
-# Label Binarizer
-#==============================================================================
-#automate this proces with a custom transformer. it simplifies the process
-#because no labels are needed inside a pipeline.
-
-from sklearn.preprocessing import LabelBinarizer
-
-bin_encoder = LabelBinarizer()
-cat_attr_df = pd.DataFrame()
-
-
-binencode = bin_encoder.fit_transform(X['Sex'])
-sex_df = pd.DataFrame(binencode, columns=["Male"])
-
-binencode = bin_encoder.fit_transform(X['Embarked'])
-embarked_df = pd.DataFrame(binencode, columns=bin_encoder.classes_)
-
-binencode = bin_encoder.fit_transform(X['Title'])
-title_df = pd.DataFrame(binencode, columns=bin_encoder.classes_)
-
-cat_attr_df = pd.concat([sex_df,embarked_df,title_df],axis = 1)
-
-#%%
-#drop attributes from training set
-for attr in ["Sex", "Embarked", "Title"]:
-     X = X.drop(attr, axis = 1)
-
-#concat trainingset with binarised categorical attributes
-X = pd.concat([X,cat_attr_df], axis = 1)
-
-
-
-
-        
 
 
 #%%
@@ -194,7 +157,7 @@ from sklearn.svm import SVC
 
 log_clf = LogisticRegression()
 rnd_clf = RandomForestClassifier(n_estimators=1000)
-svm_clf = SVC()
+svm_clf = SVC(kernel='poly', degree=11, coef0=1, C=1)
 
 voting_clf = VotingClassifier(
  estimators=[('lr', log_clf), ('rf', rnd_clf), ('svc', svm_clf)], voting='hard')
@@ -211,7 +174,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 
 param_grid_svc = [
- {'degree': [11], 'coef0': [0.1, 1,5,10], 'C': [0.1, 1,5]}
+ {'degree': [11], 'coef0': [1,100], 'C': [1]}
  ]
 
 param_grid_forest = [
@@ -250,3 +213,60 @@ print("Precision: ", precision)
 recall = recall_score(Label, pred)
 print("Recall: ", recall)
 
+#%%
+#==============================================================================
+#==============================================================================
+# # TEST and EXPORT
+#==============================================================================
+#==============================================================================
+
+X_Test = test_df.copy()
+
+X_Test["Embarked"] = X_Test["Embarked"].fillna(X["Embarked"].value_counts().index[0])
+X_Test["Sex"] = X["Sex"].fillna(X_Test["Sex"].value_counts().index[0])
+X_Test["Pclass"] = X_Test["Pclass"].apply(str)
+
+num_attribs = ["Age", "Fare", "Parch","SibSp"]
+cat_attribs = ["Sex", "Embarked", "Pclass"]
+
+
+cabin = X_Test["Cabin"]
+cabin = cabin.fillna("Z")
+cabinLetter = []
+for cabinNum in cabin:
+     cabinLetter.append(cabinNum[0])
+
+X_Test["Cabin"] = cabinLetter
+cat_attribs.append("Cabin")
+
+
+
+
+X_title = test_df.copy()
+X_title['Title'] = X_title["Name"].str.extract(' ([A-Za-z]+)\.', expand=False)
+
+#group rare titles to a rare category
+X_title['Title'] = X_title['Title'].replace(['Lady', 'Countess','Capt', 'Col',\
+ 	'Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')
+
+X_title['Title'] = X_title['Title'].replace('Mlle', 'Miss')
+X_title['Title'] = X_title['Title'].replace('Ms', 'Miss')
+X_title['Title'] = X_title['Title'].replace('Mme', 'Mrs')
+    
+#add this feature to training  and categorical attribute
+X_Test['Title'] = X_title['Title']
+cat_attribs.append("Title")
+
+X_test_prepared = preparation_pipeline.fit_transform(X_Test)
+
+
+#%%
+prediction= voting_clf.predict(X_test_prepared)
+#FIXME: ValueError: X has 24 features per sample; expecting 25
+
+#%%
+submission = pd.DataFrame({
+        "PassengerId": test_df["PassengerId"],
+        "Survived": prediction
+    })
+submission.to_csv( 'titanic_pred.csv' , index = False )

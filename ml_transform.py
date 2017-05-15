@@ -7,6 +7,7 @@ Created on Wed May  3 21:12:21 2017
 
 
 from sklearn.base import BaseEstimator, TransformerMixin
+import numpy as np
 
 #==============================================================================
 # ML transfrom functions
