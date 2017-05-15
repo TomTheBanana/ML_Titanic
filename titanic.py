@@ -37,8 +37,8 @@ X["Sex"] = X["Sex"].fillna(X["Sex"].value_counts().index[0])
 # Categorise basic attributes
 #==============================================================================
 num_attribs = ["Age", "Fare", "Parch","SibSp"]
-cat_attribs = ["Sex", "Embarked", "Pclass"]
-cat_attribs = ["Sex", "Embarked"]
+cat_attribs = ["Male","C", "Q", "S", "Master", "Miss", "Mr", "Mrs", "Rare", "Pclass"]
+
 
 #%%
 #==============================================================================
@@ -93,35 +93,48 @@ X_title['Title'] = X_title['Title'].replace('Mme', 'Mrs')
     
 X_title[['Title', 'Survived']].groupby(['Title'], as_index=False).mean()
 
-
-
-#%%
 #add this feature to training  and categorical attribute
 X['Title'] = X_title['Title']
 
 count = 0
 
-if any("Title" in s for s in cat_attribs):   
-     pass
-else:
-     cat_attribs.append("Title")
+#if any("Title" in s for s in cat_attribs):   
+#     pass
+#else:
+#     cat_attribs.append("Title")
 
 
 #%%
 #==============================================================================
 # Label Binarizer
 #==============================================================================
-#FIXME there is a problem with labelbinarizer!!!! it  does not lable prperly
+#automate this proces with a custom transformer. it simplifies the process
+#because no labels are needed inside a pipeline.
 
 from sklearn.preprocessing import LabelBinarizer
 
 bin_encoder = LabelBinarizer()
-for attribute in cat_attribs:
-     print*(attribute)
-     binencode = bin_encoder.fit_transform(X[attribute]) 
-     result_df = pd.DataFrame(binencode, columns=bin_encoder.classes_).head()
-     pd.concat([X, result_df], axis=1)
-     
+cat_attr_df = pd.DataFrame()
+
+
+binencode = bin_encoder.fit_transform(X['Sex'])
+sex_df = pd.DataFrame(binencode, columns=["Male"])
+
+binencode = bin_encoder.fit_transform(X['Embarked'])
+embarked_df = pd.DataFrame(binencode, columns=bin_encoder.classes_)
+
+binencode = bin_encoder.fit_transform(X['Title'])
+title_df = pd.DataFrame(binencode, columns=bin_encoder.classes_)
+
+cat_attr_df = pd.concat([sex_df,embarked_df,title_df],axis = 1)
+
+#%%
+#drop attributes from training set
+for attr in ["Sex", "Embarked", "Title"]:
+     X = X.drop(attr, axis = 1)
+
+#concat trainingset with binarised categorical attributes
+X = pd.concat([X,cat_attr_df], axis = 1)
 
 
 
@@ -159,7 +172,7 @@ num_pipeline = Pipeline([
 
 cat_pipeline = Pipeline([
         ('selector', DataFrameSelector(cat_attribs)),
-        ('label_binarizer', LabelBinarizer()),
+        #('label_binarizer', LabelBinarizer()),
     ])
 
 preparation_pipeline = FeatureUnion(transformer_list=[
