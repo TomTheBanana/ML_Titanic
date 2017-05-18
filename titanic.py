@@ -37,8 +37,7 @@ X["Pclass"] = X["Pclass"].apply(str)
 # Categorise basic attributes
 #==============================================================================
 num_attribs = ["Age", "Fare", "Parch","SibSp"]
-cat_attribs = ["Sex", "Embarked", "Pclass"]
-
+cat_attribs = ["Sex", "Embarked","Pclass"]
 
 #%%
 #==============================================================================
@@ -63,6 +62,10 @@ for cabinNum in cabin:
      cabinLetter.append(cabinNum[0])
 
 X["Cabin"] = cabinLetter
+
+#replace the rare T with Z to be compatible with the testset 
+X["Cabin"] = X["Cabin"].replace('T', 'Z') 
+ 
 cat_attribs.append("Cabin")
  
 #%%
@@ -141,7 +144,14 @@ X_prepared = preparation_pipeline.fit_transform(X)
 #==============================================================================
 from sklearn.ensemble import RandomForestClassifier
 
-clf = RandomForestClassifier(n_estimators=1000, n_jobs=-1)
+clf = RandomForestClassifier(n_estimators=10, min_samples_leaf=4,n_jobs=-1, random_state = 42)
+clf.fit(X_prepared, Label)
+
+
+#%%
+from sklearn.svm import SVC
+
+clf = SVC(kernel='poly', degree=11, coef0=1, C=0.1)
 clf.fit(X_prepared, Label)
 
 #%%
@@ -151,16 +161,17 @@ clf.fit(X_prepared, Label)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import VotingClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 
 
-
+kn_clf = KNeighborsClassifier(n_neighbors =12, n_jobs=-1)
 log_clf = LogisticRegression()
-rnd_clf = RandomForestClassifier(n_estimators=1000)
-svm_clf = SVC(kernel='poly', degree=11, coef0=1, C=1)
+rnd_clf = RandomForestClassifier(n_estimators=10, min_samples_leaf=4,n_jobs=-1, random_state = 42)
+svm_clf = SVC(kernel='poly', degree=12, coef0=100, C=0.1)
 
 voting_clf = VotingClassifier(
- estimators=[('lr', log_clf), ('rf', rnd_clf), ('svc', svm_clf)], voting='hard')
+ estimators=[('kn', kn_clf), ('rf', rnd_clf), ('svc', svm_clf)], voting='hard')
 voting_clf.fit(X_prepared, Label)
 
 clf=voting_clf
@@ -171,6 +182,7 @@ clf=voting_clf
 # Grid Search
 #==============================================================================
 from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 
 param_grid_svc = [
@@ -178,13 +190,13 @@ param_grid_svc = [
  ]
 
 param_grid_forest = [
- {'n_estimators': [10,100,200,500,1000,10000]}
+ {'min_samples_leaf': [1,2,3,4,5,6,7,8,9,10]}
  ]
 
+clf = RandomForestClassifier(n_estimators = 1000)
 #clf = SVC(kernel='poly')
-clf = SVC(kernel='poly')
-#grid_search = GridSearchCV(clf, param_grid_forest, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
-grid_search = GridSearchCV(clf, param_grid_svc, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
+grid_search = GridSearchCV(clf, param_grid_forest, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
+#grid_search = GridSearchCV(clf, param_grid_svc, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
 grid_search.fit(X_prepared, Label)
 
 #%%
@@ -240,8 +252,6 @@ X_Test["Cabin"] = cabinLetter
 cat_attribs.append("Cabin")
 
 
-
-
 X_title = test_df.copy()
 X_title['Title'] = X_title["Name"].str.extract(' ([A-Za-z]+)\.', expand=False)
 
@@ -261,8 +271,7 @@ X_test_prepared = preparation_pipeline.fit_transform(X_Test)
 
 
 #%%
-prediction= voting_clf.predict(X_test_prepared)
-#FIXME: ValueError: X has 24 features per sample; expecting 25
+prediction= clf.predict(X_test_prepared)
 
 #%%
 submission = pd.DataFrame({
