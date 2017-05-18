@@ -168,7 +168,7 @@ from sklearn.svm import SVC
 kn_clf = KNeighborsClassifier(n_neighbors =12, n_jobs=-1)
 log_clf = LogisticRegression()
 rnd_clf = RandomForestClassifier(n_estimators=10, min_samples_leaf=4,n_jobs=-1, random_state = 42)
-svm_clf = SVC(kernel='poly', degree=12, coef0=100, C=0.1)
+svm_clf = SVC(kernel='poly', degree=12, coef0=10, C=0.1)
 
 voting_clf = VotingClassifier(
  estimators=[('kn', kn_clf), ('rf', rnd_clf), ('svc', svm_clf)], voting='hard')
