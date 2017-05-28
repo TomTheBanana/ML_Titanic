@@ -44,7 +44,6 @@ cat_attribs = ["Sex", "Embarked","Pclass"]
 # Feature Engineering
 #==============================================================================
 
-#%%
 #==============================================================================
 # Cabin letter -- Not useful
 #==============================================================================
@@ -68,7 +67,6 @@ X["Cabin"] = X["Cabin"].replace('T', 'Z')
  
 cat_attribs.append("Cabin")
  
-#%%
 #==============================================================================
 # Title 
 #==============================================================================
@@ -83,8 +81,6 @@ X_title = train_df.copy()
 X_title['Title'] = X_title["Name"].str.extract(' ([A-Za-z]+)\.', expand=False)
 pd.crosstab(X_title['Title'], X_title['Survived'])
 X_title[['Title', 'Survived']].groupby(['Title'], as_index=False).mean()
-
-
 
 #group rare titles to a rare category
 X_title['Title'] = X_title['Title'].replace(['Lady', 'Countess','Capt', 'Col',\
@@ -140,19 +136,79 @@ X_prepared = preparation_pipeline.fit_transform(X)
 
 #%%
 #==============================================================================
-# Train
+# Train Random Forest
 #==============================================================================
-from sklearn.ensemble import RandomForestClassifier
+'''
+RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini',
+            max_depth=10, max_features='auto', max_leaf_nodes=None,
+            min_impurity_split=1e-07, min_samples_leaf=3,
+            min_samples_split=2, min_weight_fraction_leaf=0.0,
+            n_estimators=1000, n_jobs=1, oob_score=False,
+            random_state=None, verbose=0, warm_start=False)
+'''
 
-clf = RandomForestClassifier(n_estimators=10, min_samples_leaf=4,n_jobs=-1, random_state = 42)
-clf.fit(X_prepared, Label)
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+param_grid_forest = [
+ {'n_estimators':[1,10,100,1000] ,
+  'min_samples_leaf': [1,2,3,4,5,6,7,8,9,10,11,12,13,14], 
+  'max_depth': [None, 4,10,16,20]}
+ ]
+
+clf = RandomForestClassifier()
+grid_search = GridSearchCV(clf, param_grid_forest, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
+grid_search.fit(X_prepared, Label)
+
 
 
 #%%
+#==============================================================================
+# Train SVC Poly Kernel
+#==============================================================================
+from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
+'''
+SVC(C=1, cache_size=200, class_weight=None, coef0=1,
+  decision_function_shape=None, degree=3, gamma='auto', kernel='poly',
+  max_iter=-1, probability=False, random_state=None, shrinking=True,
+  tol=0.001, verbose=False)
+'''
 
-clf = SVC(kernel='poly', degree=11, coef0=1, C=0.1)
-clf.fit(X_prepared, Label)
+
+param_grid_svc = [{'degree': [3,11,12], 'coef0': [0.1,1,10], 'C': [0.1,1,10]}]
+
+
+clf = SVC(kernel='poly')
+grid_search = GridSearchCV(clf, param_grid_svc, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
+grid_search.fit(X_prepared, Label)
+
+
+
+#%%
+#==============================================================================
+# Train K-Nearest Neighbor
+#==============================================================================
+from sklearn.model_selection import GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier
+'''
+KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+           metric_params=None, n_jobs=-1, n_neighbors=6, p=1,
+           weights='uniform')
+'''
+
+
+param_grid_kn = [{'n_neighbors': [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+                  'weights': ['uniform', 'distance'],
+                  'p':[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}]
+
+clf = KNeighborsClassifier(n_jobs=-1)
+grid_search = GridSearchCV(clf, param_grid_kn, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
+grid_search.fit(X_prepared, Label)
+
+
+
+
 
 #%%
 #==============================================================================
@@ -165,10 +221,24 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 
 
-kn_clf = KNeighborsClassifier(n_neighbors =12, n_jobs=-1)
-log_clf = LogisticRegression()
-rnd_clf = RandomForestClassifier(n_estimators=10, min_samples_leaf=4,n_jobs=-1, random_state = 42)
-svm_clf = SVC(kernel='poly', degree=12, coef0=100, C=0.1)
+kn_clf = KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+           metric_params=None, n_jobs=-1, n_neighbors=6, p=1,
+           weights='uniform')
+
+
+rnd_clf = RandomForestClassifier(bootstrap=True, class_weight=None, criterion='gini',
+            max_depth=10, max_features='auto', max_leaf_nodes=None,
+            min_impurity_split=1e-07, min_samples_leaf=3,
+            min_samples_split=2, min_weight_fraction_leaf=0.0,
+            n_estimators=1000, n_jobs=-1, oob_score=False,
+            random_state=None, verbose=0, warm_start=False)
+
+
+svm_clf = SVC(C=1, cache_size=200, class_weight=None, coef0=1,
+  decision_function_shape=None, degree=3, gamma='auto', kernel='poly',
+  max_iter=-1, probability=False, random_state=None, shrinking=True,
+  tol=0.001, verbose=False)
+
 
 voting_clf = VotingClassifier(
  estimators=[('kn', kn_clf), ('rf', rnd_clf), ('svc', svm_clf)], voting='hard')
@@ -176,28 +246,6 @@ voting_clf.fit(X_prepared, Label)
 
 clf=voting_clf
 
-
-#%%
-#==============================================================================
-# Grid Search
-#==============================================================================
-from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-
-param_grid_svc = [
- {'degree': [11], 'coef0': [1,100], 'C': [1]}
- ]
-
-param_grid_forest = [
- {'min_samples_leaf': [1,2,3,4,5,6,7,8,9,10]}
- ]
-
-clf = RandomForestClassifier(n_estimators = 1000)
-#clf = SVC(kernel='poly')
-grid_search = GridSearchCV(clf, param_grid_forest, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
-#grid_search = GridSearchCV(clf, param_grid_svc, cv=10, verbose=10, scoring='accuracy', n_jobs=-1)
-grid_search.fit(X_prepared, Label)
 
 #%%
 #==============================================================================
